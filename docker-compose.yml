@@ -1,0 +1,36 @@
+version: '3.7'
+
+services:
+  mariadb:
+    image: mariadb:10.4
+    user: mysql
+    environment:
+      MYSQL_DATABASE: EXAMPLE-DB
+      MYSQL_USER: ${MYSQL_USER}
+    volumes:
+      - /home/osboxes/Desktop/data/mariadb:/var/lib/mysql
+    networks:
+      - internal
+
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: EXAMPLE-DB
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "http://localhost:8080"]
+      retries: 6
+
+networks:
+  internal:
+    external: true
+    name: webapp
