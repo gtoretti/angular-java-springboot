@@ -1,0 +1,92 @@
+version: '3.7'
+
+services:
+  redis:
+    image: redis:5.0
+    user: redis
+    command: [ "/bin/sh", "-c", "exec /usr/local/bin/redis-server --requirepass \"$$(cat /run/secrets/redis)\""]
+    secrets:
+      - source: ${SERVICE}_redis
+        target: redis
+        mode: 0400
+        uid: '999'
+        gid: '999'
+    networks:
+      - internal
+
+  mariadb:
+    image: mariadb:10.4
+    user: mysql
+    environment:
+      MYSQL_DATABASE: ${SERVICE}_${RAILS_ENV}
+      MYSQL_USER: ${SERVICE}
+    volumes:
+      - ${PERSISTENT_STORAGE}/${SERVICE}/mariadb:/var/lib/mysql
+      - ${BACKUP_STORAGE}/${SERVICE}/mariadb:/backup
+    networks:
+      - internal
+
+  policy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        RAILS_ENV: ${RAILS_ENV}
+    environment:
+      RAILS_LOG_TO_STDOUT: 'yes'
+      RAILS_ENV: ${RAILS_ENV}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DATABASE: ${SERVICE}_${RAILS_ENV}
+      MYSQL_USER: ${SERVICE}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      HEALTHD_MYSQL_HOST: ${HEALTHD_MYSQL_HOST}
+      HEALTHD_MYSQL_PORT: ${HEALTHD_MYSQL_PORT}
+      HEALTHD_MYSQL_USER: ${HEALTHD_MYSQL_USER}
+      HEALTHD_MYSQL_DATABASE: ${HEALTHD_MYSQL_DATABASE}
+      HEALTHD_MYSQL_PASSWORD: ${HEALTHD_MYSQL_PASSWORD}
+      OPENID_CLIENT: ${OPENID_CLIENT}
+      OPENID_SECRET: ${OPENID_SECRET}
+      W3ID_SITE: ${W3ID_SITE}
+      W3ID_AUTHORIZE_URL: ${W3ID_AUTHORIZE_URL}
+      W3ID_TOKEN_URL: ${W3ID_TOKEN_URL}
+      W3ID_INTROSPECT_URL: ${W3ID_INTROSPECT_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+
+    extra_hosts:
+      - "bluepages.ibm.com:9.17.186.253"
+    networks:
+      - internal
+      - dmz
+#    healthcheck:
+#      test: ["CMD", "curl", "http://localhost:3000"]
+#      retries: 6
+    secrets:
+      - source: ${SERVICE}_masterkey
+        target: master.key
+        mode: 0400
+        uid: '10000'
+        gid: '10000'
+      - source: ${SERVICE}_credentials
+        target: credentials.yml.enc
+        mode: 0400
+        uid: '10000'
+        gid: '10000'
+
+secrets:
+  policy_credentials:
+    external: true
+  policy_masterkey:
+    external: true
+  policy_redis:
+    external: true
+
+networks:
+  internal:
+    external: true
+    name: ${SERVICE}
+
+  dmz:
+    external: true
+    name: dmz
